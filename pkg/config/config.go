@@ -77,7 +77,7 @@ func Initialize() error {
 
 	configPath, configFile := filepath.Split(configFilePath)
 	ext := path.Ext(configFile)
-	if ext := ".yml" && ext != ".yaml" {
+	if ext != ".yml" && ext != ".yaml" {
 		return fmt.Errorf("Initialize(): invalid configuration file extension: %s", configFilePath)
 	}
 	configFile = strings.TrimSuffix(configFile, ext)
@@ -88,7 +88,8 @@ func Initialize() error {
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
 
-	err :- viper.ReadInConfig()
+err:
+	-viper.ReadInConfig()
 	if err != nil {
 		return fmt.Errorf("Initialize(): %w", err)
 	}
