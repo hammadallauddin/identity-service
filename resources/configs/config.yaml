@@ -1,0 +1,17 @@
+app:
+  name: 'identity-service'
+  version: 'v1.0.0'
+
+http:
+  port: '8080'
+
+logging:
+  level: 'debug'
+  domain: 'test-domain'
+  output:
+    format: 'json'
+    timestamp-key: 'timestamp'
+    level-key: 'severity'
+    message-key: 'message'
+    time-field-format: 'rfc3339'
+  
