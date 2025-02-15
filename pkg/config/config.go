@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/hammadallauddin/identity-service/pkg/log"
+	"github.com/joho/godotenv"
 	"github.com/spf13/cast"
 	"github.com/spf13/viper"
 )
@@ -62,6 +63,10 @@ func Reset() {
 func Initialize() error {
 	configFilePtr := flag.String("config", "", "Path to the configuration file")
 	flag.Parse()
+
+	if err := godotenv.Load(); err != nil {
+		return fmt.Errorf("Initialize(): failed to load .env file: %w", err)
+	}
 
 	configFilePath := os.Getenv("CONFIG_PATH")
 	if len(configFilePath) == 0 {

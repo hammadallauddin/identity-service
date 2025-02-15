@@ -1,4 +1,4 @@
-app:
+service:
   name: 'identity-service'
   version: 'v1.0.0'
 
