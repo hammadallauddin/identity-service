@@ -88,8 +88,7 @@ func Initialize() error {
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
 
-err:
-	-viper.ReadInConfig()
+	err := viper.ReadInConfig()
 	if err != nil {
 		return fmt.Errorf("Initialize(): %w", err)
 	}
