@@ -3,6 +3,7 @@ module github.com/hammadallauddin/identity-service
 go 1.23.5
 
 require (
+	github.com/joho/godotenv v1.5.1
 	github.com/rs/zerolog v1.33.0
 	github.com/spf13/cast v1.6.0
 	github.com/spf13/viper v1.19.0
