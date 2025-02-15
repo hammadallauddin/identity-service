@@ -1,0 +1,9 @@
+app:
+  name: 'identity-service'
+  version: 'v1.0.0'
+
+http:
+  port: '8080'
+
+logger:
+  level: 'debug'

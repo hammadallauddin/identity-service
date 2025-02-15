@@ -1,3 +1,0 @@
-service:
-  name: "identity-service"
-  port: 8081

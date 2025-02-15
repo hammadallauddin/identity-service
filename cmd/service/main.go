@@ -1,14 +1,27 @@
 package main
 
-import (
-	"log/slog"
-	"os"
-)
+// import (
+// 	"encoding/json"
+// 	"log"
+// 	"net/http"
 
-func main() {
-	handlerOpts := &slog.HandlerOptions{Level: slog.LevelDebug}
-	logger := slog.New(slog.NewTextHandler(os.Stderr, handlerOpts))
-	logger.Info("Identity Service starting up")
-	logger = logger.With("service", "identity-service")
+// 	"honnef.co/go/tools/config"
+// )
 
-}
+// func main() {
+// 	cfg := config.Load()
+
+// 	// Define route with JSON response
+// 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+// 		w.Header().Set("Content-Type", "application/json")
+// 		json.NewEncoder(w).Encode(map[string]string{
+// 			"service": cfg.ServiceName,
+// 			"status":  "running",
+// 			"message": "DDD server with minimal setup",
+// 		})
+// 	})
+
+// 	// Start server
+// 	log.Printf("🚀 Server %s listening on :%s", cfg.ServiceName, cfg.Port)
+// 	log.Fatal(http.ListenAndServe(":"+cfg.Port, nil))
+// }
