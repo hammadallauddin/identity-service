@@ -25,3 +25,5 @@
 # IntelliJ
 out/
 .idea
+
+.env
