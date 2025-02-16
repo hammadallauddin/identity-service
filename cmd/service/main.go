@@ -1,15 +1,22 @@
 package main
 
 import (
-	"log/slog"
+	"log"
 
 	"github.com/hammadallauddin/identity-service/pkg/config"
+	"github.com/hammadallauddin/identity-service/pkg/logs"
 )
 
 func main() {
 	err := config.Initialize()
 	if err != nil {
-		slog.Error("unable to initialze config", err)
+		log.Fatalf("could not initialize config: %v", err)
 	}
-	slog.Info("starting service")
+
+	logger, err := logs.Initialize()
+	if err != nil {
+		log.Fatalf("could not initialize logger: %v", err)
+	}
+
+	logger.Debug("starting service ... ")
 }

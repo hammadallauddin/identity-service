@@ -1,4 +1,4 @@
-package logger
+package logs
 
 import (
 	"context"
@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"os"
 	"time"
+
+	"github.com/hammadallauddin/identity-service/pkg/config"
 )
 
 const LevelFatal slog.Level = 12
@@ -20,7 +22,7 @@ const (
 
 var globalLogLevel = new(slog.LevelVar)
 
-func SetLevel(level slog.Level) {
+func setLevel(level slog.Level) {
 	globalLogLevel.Set(level)
 }
 
@@ -33,32 +35,85 @@ var levelFieldName = slog.LevelKey
 var messageFieldName = slog.MessageKey
 var timestampFormat = time.RFC3339
 
-func SetTimestampFieldName(name string) {
+func setTimestampFieldName(name string) {
 	timestampFieldName = name
 }
 
-func SetLevelFieldName(name string) {
+func setLevelFieldName(name string) {
 	levelFieldName = name
 }
 
-func SetMessageFieldName(name string) {
+func setMessageFieldName(name string) {
 	messageFieldName = name
 }
 
-func SetTimeFieldFormat(format string) {
+func setTimeFieldFormat(format string) {
 	timestampFormat = format
 }
 
-func Initialize(format OutputFormat, domain string, service string) error {
-	return InitializeWithOutput(format, domain, service, os.Stdout)
+func Initialize() (*slog.Logger, error) {
+	level, err := config.GetString("logging.level")
+	if err != nil {
+		return nil, fmt.Errorf("initializeLogging(): invalid 'logging.level' configuration: %w", err)
+	}
+	var logLevel slog.Level
+	switch level {
+	case "info":
+		logLevel = slog.LevelInfo
+	case "error":
+		logLevel = slog.LevelError
+	case "debug":
+		logLevel = slog.LevelDebug
+	case "warn":
+		logLevel = slog.LevelWarn
+	default:
+		return nil, fmt.Errorf("initializeLogging(): invalid 'logging.level' configuration: %s", level)
+	}
+	setLevel(logLevel)
+
+	timestampKey, _ := config.GetString("logging.output.timestamp-key", "timestamp")
+	setTimestampFieldName(timestampKey)
+
+	levelKey, _ := config.GetString("logging.output.level-key", "severity")
+	setLevelFieldName(levelKey)
+
+	messageKey, _ := config.GetString("logging.output.message-key", "message")
+	setMessageFieldName(messageKey)
+
+	timeFieldFormat, _ := config.GetString("logging.output.time-field-format", time.RFC3339)
+	setTimeFieldFormat(timeFieldFormat)
+
+	serviceName, err := config.GetString("service.name")
+	if err != nil {
+		return nil, fmt.Errorf("initializeLogging(): invalid 'service.name' configuration: %w", err)
+	}
+
+	domainName, err := config.GetString("logging.domain", "default")
+	if err != nil {
+		return nil, fmt.Errorf("initializeLogging(): invalid 'logging.domain' configuration: %w", err)
+	}
+
+	var outputFormat OutputFormat
+	optFmt, err := config.GetString("logging.output.format", "json")
+	if err != nil {
+		return nil, fmt.Errorf("initializeLogging(): invalid 'logging.output.format' configuration: %w", err)
+	}
+	switch optFmt {
+	case "text":
+		outputFormat = OutputFormatText
+	default:
+		outputFormat = OutputFormatJSON
+	}
+
+	return initializeWithOutput(outputFormat, domainName, serviceName, os.Stdout)
 }
 
-func InitializeWithOutput(format OutputFormat, domain string, service string, output io.Writer) error {
-	logger, err := NewWithOptions(
+func initializeWithOutput(format OutputFormat, domain string, service string, output io.Writer) (*slog.Logger, error) {
+	logger, err := newWithOptions(
 		format,
 		domain,
 		service,
-		Options{
+		options{
 			HandlerOptions: &slog.HandlerOptions{
 				Level:       globalLogLevel,
 				ReplaceAttr: DefaultReplaceAttrs(),
@@ -67,20 +122,19 @@ func InitializeWithOutput(format OutputFormat, domain string, service string, ou
 		},
 	)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	slog.SetDefault(logger)
-	return nil
+	return logger, nil
 }
 
-func InitializeWithHandler(handler slog.Handler, domain string, service string) {
-	logger := NewWithHandler(handler, domain, service)
+func initializeWithHandler(handler slog.Handler, domain string, service string) {
+	logger := newWithHandler(handler, domain, service)
 	slog.SetDefault(logger)
 }
 
 func New(format OutputFormat, domain string, service string) (*slog.Logger, error) {
-	return NewWithOptions(format, domain, service, Options{
+	return newWithOptions(format, domain, service, options{
 		HandlerOptions: &slog.HandlerOptions{
 			Level: slog.LevelDebug,
 			ReplaceAttr: ReplaceAttrs(
@@ -94,16 +148,16 @@ func New(format OutputFormat, domain string, service string) (*slog.Logger, erro
 	})
 }
 
-type Options struct {
+type options struct {
 	*slog.HandlerOptions
 	Output io.Writer
 }
 
-func NewWithOptions(
+func newWithOptions(
 	format OutputFormat,
 	domain string,
 	service string,
-	options Options,
+	options options,
 ) (*slog.Logger, error) {
 	var handler slog.Handler
 	switch format {
@@ -115,10 +169,10 @@ func NewWithOptions(
 		return nil, fmt.Errorf("invalid 'logging.output.format' configuration: %s", format)
 	}
 
-	return NewWithHandler(&ContextHandler{handler}, domain, service), nil
+	return newWithHandler(&ContextHandler{handler}, domain, service), nil
 }
 
-func NewWithHandler(handler slog.Handler, domain string, service string) *slog.Logger {
+func newWithHandler(handler slog.Handler, domain string, service string) *slog.Logger {
 	return slog.New(handler).With("domain", domain, "service", service)
 }
 

@@ -4,13 +4,11 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/hammadallauddin/identity-service/pkg/logger"
 	"github.com/joho/godotenv"
 	"github.com/spf13/cast"
 	"github.com/spf13/viper"
@@ -20,68 +18,6 @@ const (
 	invalidConfiguration = "invalid configuration '%s'"
 	missingConfiguration = "missing configuration '%s'"
 )
-
-func initializeLogging() error {
-	level, err := GetString("logging.level")
-	if err != nil {
-		return fmt.Errorf("initializeLogging(): invalid 'logging.level' configuration: %w", err)
-	}
-	var logLevel slog.Level
-	switch level {
-	case "info":
-		logLevel = slog.LevelInfo
-	case "error":
-		logLevel = slog.LevelError
-	case "debug":
-		logLevel = slog.LevelDebug
-	case "warn":
-		logLevel = slog.LevelWarn
-	default:
-		return fmt.Errorf("initializeLogging(): invalid 'logging.level' configuration: %s", level)
-	}
-	logger.SetLevel(logLevel)
-
-	timestampKey, _ := GetString("logging.output.timestamp-key", "@timestamp")
-	logger.SetTimestampFieldName(timestampKey)
-
-	levelKey, _ := GetString("logging.output.level-key", "severity")
-	logger.SetLevelFieldName(levelKey)
-
-	messageKey, _ := GetString("logging.output.message-key", "message")
-	logger.SetMessageFieldName(messageKey)
-
-	timeFieldFormat, _ := GetString("logging.output.time-field-format", time.RFC3339)
-	logger.SetTimeFieldFormat(timeFieldFormat)
-
-	serviceName, err := GetString("service.name")
-	if err != nil {
-		return fmt.Errorf("initializeLogging(): invalid 'service.name' configuration: %w", err)
-	}
-
-	domainName, err := GetString("logging.domain", "default")
-	if err != nil {
-		return fmt.Errorf("initializeLogging(): invalid 'logging.domain' configuration: %w", err)
-	}
-
-	var outputFormat logger.OutputFormat
-	optFmt, err := GetString("logging.output.format", "json")
-	if err != nil {
-		return fmt.Errorf("initializeLogging(): invalid 'logging.output.format' configuration: %w", err)
-	}
-	switch optFmt {
-	case "text":
-		outputFormat = logger.OutputFormatText
-	default:
-		outputFormat = logger.OutputFormatJSON
-	}
-
-	err = logger.Initialize(outputFormat, domainName, serviceName)
-	if err != nil {
-		return fmt.Errorf("unable to initialize logger: %w", err)
-	}
-
-	return nil
-}
 
 func Reset() {
 	args := strings.Split(os.Getenv("FLAG_FOR_MAIN"), ",")
@@ -116,10 +52,6 @@ func Initialize() error {
 
 	if err := viper.ReadInConfig(); err != nil {
 		return fmt.Errorf("config read error: %w", err)
-	}
-
-	if err := initializeLogging(); err != nil {
-		return fmt.Errorf("logging initialization failed: %w", err)
 	}
 
 	return nil
