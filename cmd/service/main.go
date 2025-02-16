@@ -1,16 +1,15 @@
 package main
 
 import (
-	"fmt"
-	"log"
+	"log/slog"
 
 	"github.com/hammadallauddin/identity-service/pkg/config"
 )
 
 func main() {
-	if err := config.Initialize(); err != nil {
-		log.Fatalf("coult not initialize config: %v", err)
+	err := config.Initialize()
+	if err != nil {
+		slog.Error("unable to initialze config", err)
 	}
-
-	fmt.Println("Starting the service...")
+	slog.Info("starting service")
 }

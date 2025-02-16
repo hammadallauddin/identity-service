@@ -1,53 +1,86 @@
 package config
 
 import (
+	"errors"
 	"flag"
 	"fmt"
+	"log/slog"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/hammadallauddin/identity-service/pkg/log"
+	"github.com/hammadallauddin/identity-service/pkg/logger"
 	"github.com/joho/godotenv"
 	"github.com/spf13/cast"
 	"github.com/spf13/viper"
 )
 
 const (
-	invalidConfiguration = "Invalid configuration '%s'"
-	missingConfiguration = "Missing configuration '%s'"
+	invalidConfiguration = "invalid configuration '%s'"
+	missingConfiguration = "missing configuration '%s'"
 )
 
 func initializeLogging() error {
+	level, err := GetString("logging.level")
+	if err != nil {
+		return fmt.Errorf("initializeLogging(): invalid 'logging.level' configuration: %w", err)
+	}
+	var logLevel slog.Level
+	switch level {
+	case "info":
+		logLevel = slog.LevelInfo
+	case "error":
+		logLevel = slog.LevelError
+	case "debug":
+		logLevel = slog.LevelDebug
+	case "warn":
+		logLevel = slog.LevelWarn
+	default:
+		return fmt.Errorf("initializeLogging(): invalid 'logging.level' configuration: %s", level)
+	}
+	logger.SetLevel(logLevel)
+
+	timestampKey, _ := GetString("logging.output.timestamp-key", "@timestamp")
+	logger.SetTimestampFieldName(timestampKey)
+
+	levelKey, _ := GetString("logging.output.level-key", "severity")
+	logger.SetLevelFieldName(levelKey)
+
+	messageKey, _ := GetString("logging.output.message-key", "message")
+	logger.SetMessageFieldName(messageKey)
+
+	timeFieldFormat, _ := GetString("logging.output.time-field-format", time.RFC3339)
+	logger.SetTimeFieldFormat(timeFieldFormat)
+
 	serviceName, err := GetString("service.name")
 	if err != nil {
 		return fmt.Errorf("initializeLogging(): invalid 'service.name' configuration: %w", err)
 	}
 
-	level, err := GetString("logging.level")
+	domainName, err := GetString("logging.domain", "default")
 	if err != nil {
-		return fmt.Errorf("initializeLogging(): invalid 'logging.level' configuration: %w", err)
+		return fmt.Errorf("initializeLogging(): invalid 'logging.domain' configuration: %w", err)
 	}
 
-	if err := log.SetLevel(level); err != nil {
-		return fmt.Errorf("initializeLogging(): invalid 'logging.level' configuration: level=%s error=%w", level, err)
+	var outputFormat logger.OutputFormat
+	optFmt, err := GetString("logging.output.format", "json")
+	if err != nil {
+		return fmt.Errorf("initializeLogging(): invalid 'logging.output.format' configuration: %w", err)
+	}
+	switch optFmt {
+	case "text":
+		outputFormat = logger.OutputFormatText
+	default:
+		outputFormat = logger.OutputFormatJSON
 	}
 
-	domainName, _ := GetString("logging.domain", "default")
-	outputFormat, _ := GetString("logging.output.format", "simple")
-	timestampKey, _ := GetString("logging.output.timestamp-key", "@timestamp")
-	levelKey, _ := GetString("logging.output.level-key", "severity")
-	messageKey, _ := GetString("logging.output.message-key", "message")
-	timeFieldFormat, _ := GetString("logging.output.time-field-format", time.RFC3339)
+	err = logger.Initialize(outputFormat, domainName, serviceName)
+	if err != nil {
+		return fmt.Errorf("unable to initialize logger: %w", err)
+	}
 
-	log.SetTimestampFieldName(timestampKey)
-	log.SetLevelFieldName(levelKey)
-	log.SetMessageFieldName(messageKey)
-	log.SetTimeFieldFormat(timeFieldFormat)
-
-	return log.Initialize(outputFormat, domainName, serviceName)
+	return nil
 }
 
 func Reset() {
@@ -61,49 +94,44 @@ func Reset() {
 }
 
 func Initialize() error {
-	configFilePtr := flag.String("config", "", "Path to the configuration file")
+	configDirPtr := flag.String("config", "", "Path to configuration directory")
 	flag.Parse()
 
-	if err := godotenv.Load(); err != nil {
-		return fmt.Errorf("Initialize(): failed to load .env file: %w", err)
+	if err := godotenv.Load(); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("error loading .env file: %w", err)
 	}
 
-	configFilePath := os.Getenv("CONFIG_PATH")
-	if len(configFilePath) == 0 {
-		configFilePath = *configFilePtr
-		if len(configFilePath) == 0 {
-			return fmt.Errorf("Initialize(): missing configuration file")
-		}
+	configDir := firstNonEmpty(*configDirPtr, os.Getenv("CONFIG_PATH"))
+	if configDir == "" {
+		return errors.New("configuration directory not specified")
 	}
+	env := firstNonEmpty(os.Getenv("ENVIRONMENT"), "development")
+	configFile := filepath.Join(configDir, fmt.Sprintf("%s-config.yaml", env))
+	configFile = filepath.ToSlash(configFile)
 
-	if _, err := os.Stat(configFilePath); os.IsNotExist(err) {
-		return fmt.Errorf("Initialize(): configuration file does not exist: %s", configFilePath)
-	}
-
-	configPath, configFile := filepath.Split(configFilePath)
-	ext := path.Ext(configFile)
-	if ext != ".yml" && ext != ".yaml" {
-		return fmt.Errorf("Initialize(): invalid configuration file extension: %s", configFilePath)
-	}
-	configFile = strings.TrimSuffix(configFile, ext)
-
+	viper.SetConfigFile(configFile)
 	viper.SetConfigType("yaml")
-	viper.SetConfigName(configFile)
-	viper.AddConfigPath(configPath)
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
-	err := viper.ReadInConfig()
-	if err != nil {
-		return fmt.Errorf("Initialize(): %w", err)
+	if err := viper.ReadInConfig(); err != nil {
+		return fmt.Errorf("config read error: %w", err)
 	}
 
-	err = initializeLogging()
-	if err != nil {
-		return fmt.Errorf("Initialize(): %w", err)
+	if err := initializeLogging(); err != nil {
+		return fmt.Errorf("logging initialization failed: %w", err)
 	}
 
 	return nil
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 func Get(key string, defaults ...interface{}) interface{} {
