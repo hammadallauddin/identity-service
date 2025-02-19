@@ -29,5 +29,5 @@ out/
 # Environment files
 .env
 
-# Config files (all variations of conf-*.yml)
-conf-*.yml
+# Config files (all variations of config-*.yml)
+config-*.yml
