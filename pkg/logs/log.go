@@ -6,9 +6,11 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/hammadallauddin/identity-service/pkg/config"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 const LevelFatal slog.Level = 12
@@ -105,7 +107,31 @@ func Initialize() (*slog.Logger, error) {
 		outputFormat = OutputFormatJSON
 	}
 
-	return initializeWithOutput(outputFormat, domainName, serviceName, os.Stdout)
+	var output io.Writer
+	outputTarget, _ := config.GetString("logging.output.target", "console")
+	switch outputTarget {
+	case "file":
+		logDir, _ := config.GetString("logging.output.path", "./logs")
+		fileName := "application" + time.Now().Format("2006-01-02") + ".log"
+		fullPath := filepath.Join(logDir, fileName)
+
+		if err := os.MkdirAll(logDir, 0755); err != nil {
+			return nil, fmt.Errorf("failed to create log directory: %w", err)
+		}
+
+		output = &lumberjack.Logger{
+			Filename: fullPath,
+			MaxSize:  100,
+			MaxAge:   30,
+			Compress: true,
+		}
+	case "console":
+		output = os.Stdout
+	default:
+		return nil, fmt.Errorf("initializeLogging(): invalid output target %q", outputTarget)
+	}
+
+	return initializeWithOutput(outputFormat, domainName, serviceName, output)
 }
 
 func initializeWithOutput(format OutputFormat, domain string, service string, output io.Writer) (*slog.Logger, error) {
@@ -126,11 +152,6 @@ func initializeWithOutput(format OutputFormat, domain string, service string, ou
 	}
 
 	return logger, nil
-}
-
-func initializeWithHandler(handler slog.Handler, domain string, service string) {
-	logger := newWithHandler(handler, domain, service)
-	slog.SetDefault(logger)
 }
 
 func New(format OutputFormat, domain string, service string) (*slog.Logger, error) {

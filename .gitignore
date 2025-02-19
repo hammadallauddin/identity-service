@@ -31,3 +31,6 @@ out/
 
 # Config files (all variations of config-*.yaml)
 config-*.yaml
+
+### Log Path ###
+/logs
