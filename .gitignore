@@ -30,4 +30,4 @@ out/
 .env
 
 # Config files (all variations of config-*.yaml)
-# config-*.yaml
+config-*.yaml
