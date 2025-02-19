@@ -42,7 +42,7 @@ func Initialize() error {
 		return errors.New("configuration directory not specified")
 	}
 	env := firstNonEmpty(os.Getenv("ENVIRONMENT"), "development")
-	configFile := filepath.Join(configDir, fmt.Sprintf("%s-config.yaml", env))
+	configFile := filepath.Join(configDir, fmt.Sprintf("config-%s.yaml", env))
 	configFile = filepath.ToSlash(configFile)
 
 	viper.SetConfigFile(configFile)
